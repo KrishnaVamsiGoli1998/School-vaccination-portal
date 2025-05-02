@@ -74,20 +74,32 @@ exports.login = async (req, res) => {
 
 // For demo purposes - hardcoded login
 exports.demoLogin = (req, res) => {
+  console.log('Demo login attempt:', req.body);
+  
   // Hardcoded admin credentials for demo
-  if (req.body.username === 'admin' && req.body.password === 'admin123') {
-    const token = jwt.sign({ id: 1 }, process.env.JWT_SECRET, {
+  if (req.body.username === 'admin' && req.body.password === 'Vax@Portal2025!') {
+    console.log('Demo login successful');
+    
+    // Use a fixed secret if environment variable is not set
+    const jwtSecret = process.env.JWT_SECRET || 'vaccination-portal-secret-key';
+    
+    const token = jwt.sign({ id: 1 }, jwtSecret, {
       expiresIn: 86400 // 24 hours
     });
 
-    res.status(200).send({
+    // Send response with accessToken
+    const response = {
       id: 1,
       username: 'admin',
       name: 'School Coordinator',
       role: 'coordinator',
       accessToken: token
-    });
+    };
+    
+    console.log('Sending login response:', response);
+    res.status(200).send(response);
   } else {
+    console.log('Demo login failed: Invalid credentials');
     res.status(401).send({
       message: 'Invalid credentials!'
     });

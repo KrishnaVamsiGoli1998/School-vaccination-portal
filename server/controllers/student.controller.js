@@ -60,7 +60,13 @@ exports.findAll = async (req, res) => {
     }
     
     if (grade) {
-      condition.grade = grade;
+      // Handle comma-separated list of grades
+      if (grade.includes(',')) {
+        const grades = grade.split(',').map(g => g.trim());
+        condition.grade = { [Op.in]: grades };
+      } else {
+        condition.grade = grade;
+      }
     }
     
     if (studentId) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Card, Row, Col, Table, Button, Badge, Form, Modal } from 'react-bootstrap';
+import { Card, Row, Col, Table, Button, Badge, Form, Modal, InputGroup } from 'react-bootstrap';
 import { FaEdit, FaCalendarAlt, FaSyringe, FaUserGraduate, FaCheck, FaSearch } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -41,16 +41,25 @@ const VaccinationDriveDetails = () => {
 
   const fetchEligibleStudents = (driveData) => {
     // Get students in applicable grades
-    StudentService.getAll({ grade: driveData.applicableGrades.join(',') })
+    const gradeFilter = driveData.applicableGrades && Array.isArray(driveData.applicableGrades) && driveData.applicableGrades.length > 0
+      ? { grade: driveData.applicableGrades.join(',') }
+      : {}; // If no grades specified, get all students
+    
+    StudentService.getAll(gradeFilter)
       .then(response => {
         // Filter out students who are already vaccinated in this drive
         const vaccinatedStudentIds = new Set(
-          driveData.vaccinations.map(v => v.studentId)
+          (driveData.vaccinations || []).map(v => v.studentId)
         );
+        
+        console.log('Fetched students:', response.data);
+        console.log('Vaccinated student IDs:', Array.from(vaccinatedStudentIds));
         
         const eligibleStudents = response.data.filter(
           student => !vaccinatedStudentIds.has(student.id)
         );
+        
+        console.log('Eligible students:', eligibleStudents);
         
         setStudents(eligibleStudents);
         setFilteredStudents(eligibleStudents);
@@ -67,15 +76,19 @@ const VaccinationDriveDetails = () => {
     const term = e.target.value;
     setSearchTerm(term);
     
+    console.log('Search term:', term);
+    console.log('All students:', students);
+    
     if (!term.trim()) {
       setFilteredStudents(students);
     } else {
       const filtered = students.filter(
         student => 
-          student.name.toLowerCase().includes(term.toLowerCase()) ||
-          student.studentId.toLowerCase().includes(term.toLowerCase()) ||
-          student.grade.toString().includes(term)
+          (student.name && student.name.toLowerCase().includes(term.toLowerCase())) ||
+          (student.studentId && student.studentId.toLowerCase().includes(term.toLowerCase())) ||
+          (student.grade && student.grade.toString().includes(term))
       );
+      console.log('Filtered students:', filtered);
       setFilteredStudents(filtered);
     }
   };
@@ -127,6 +140,29 @@ const VaccinationDriveDetails = () => {
     const today = new Date();
     return driveDate < today;
   };
+  
+  const canRecordVaccinations = () => {
+    if (!drive) return false;
+    
+    // Can record if:
+    // 1. There are remaining doses
+    // 2. The drive date is today or in the past
+    // 3. The drive is not cancelled
+    
+    const driveDate = new Date(drive.date);
+    driveDate.setHours(0, 0, 0, 0); // Set to beginning of day
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to beginning of day
+    
+    const remainingDoses = drive.availableDoses - (drive.vaccinatedCount || 0);
+    
+    return (
+      remainingDoses > 0 && 
+      driveDate <= today && 
+      drive.status !== 'cancelled'
+    );
+  };
 
   const getStatusBadge = (status) => {
     if (status === 'completed') {
@@ -154,16 +190,18 @@ const VaccinationDriveDetails = () => {
           <p className="text-muted">Vaccination Drive Details</p>
         </div>
         <div>
-          {!isPastDrive() && (
-            <Link to={`/vaccination-drives/edit/${id}`} className="btn btn-primary me-2">
-              <FaEdit className="me-2" /> Edit Drive
-            </Link>
-          )}
-          {isPastDrive() && remainingDoses > 0 && (
-            <Button variant="success" onClick={() => setShowVaccinateModal(true)}>
-              <FaSyringe className="me-2" /> Record Vaccinations
-            </Button>
-          )}
+          <div className="d-flex">
+            {!isPastDrive() && (
+              <Link to={`/vaccination-drives/edit/${id}`} className="btn btn-primary me-2">
+                <FaEdit className="me-2" /> Edit Drive
+              </Link>
+            )}
+            {canRecordVaccinations() && (
+              <Button variant="success" onClick={() => setShowVaccinateModal(true)}>
+                <FaSyringe className="me-2" /> Record Vaccinations
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -189,7 +227,7 @@ const VaccinationDriveDetails = () => {
                   <p><strong>Remaining Doses:</strong> {remainingDoses}</p>
                 </Col>
               </Row>
-              <p><strong>Applicable Grades:</strong> {drive.applicableGrades.join(', ')}</p>
+              <p><strong>Applicable Grades:</strong> {drive.applicableGrades && Array.isArray(drive.applicableGrades) && drive.applicableGrades.length > 0 ? drive.applicableGrades.join(', ') : 'All Grades'}</p>
               {drive.description && (
                 <div>
                   <strong>Description:</strong>
@@ -282,11 +320,17 @@ const VaccinationDriveDetails = () => {
           <Modal.Title>Record Vaccinations</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>
-            <strong>Drive:</strong> {drive.name} ({drive.vaccineName})
-            <br />
-            <strong>Remaining Doses:</strong> {remainingDoses}
-          </p>
+          <div className="alert alert-info mb-3">
+            <h5><FaSyringe className="me-2" /> Vaccination Information</h5>
+            <p className="mb-1"><strong>Drive:</strong> {drive.name}</p>
+            <p className="mb-1"><strong>Vaccine:</strong> {drive.vaccineName}</p>
+            <p className="mb-1"><strong>Date:</strong> {moment(drive.date).format('MMMM DD, YYYY')}</p>
+            <p className="mb-1"><strong>Remaining Doses:</strong> {remainingDoses}</p>
+            <p className="mb-0 mt-2 small">
+              Select the students who have received this vaccination. 
+              Once recorded, vaccination records cannot be modified.
+            </p>
+          </div>
 
           <Form.Group className="mb-3">
             <InputGroup>
@@ -340,10 +384,23 @@ const VaccinationDriveDetails = () => {
               </Table>
             </div>
           ) : (
-            <EmptyState 
-              message={searchTerm ? "No students match your search" : "No eligible students found"} 
-              icon={FaUserGraduate}
-            />
+            <div className="alert alert-warning">
+              <FaUserGraduate className="me-2" />
+              {searchTerm 
+                ? "No students match your search" 
+                : "No eligible students found for this vaccination drive"}
+              <div className="mt-2 small">
+                <strong>Possible reasons:</strong>
+                <ul className="mb-0">
+                  <li>No students are registered in the applicable grades</li>
+                  <li>All eligible students have already been vaccinated</li>
+                  <li>The drive might not have any applicable grades specified</li>
+                </ul>
+                <div className="mt-2">
+                  Try <a href="/students/new" target="_blank">adding new students</a> or adjusting the drive's applicable grades.
+                </div>
+              </div>
+            </div>
           )}
 
           {selectedStudents.length > 0 && (
@@ -359,20 +416,36 @@ const VaccinationDriveDetails = () => {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowVaccinateModal(false)}>
-            Cancel
-          </Button>
-          <Button 
-            variant="success" 
-            onClick={handleVaccinate} 
-            disabled={
-              selectedStudents.length === 0 || 
-              selectedStudents.length > remainingDoses ||
-              vaccinatingLoading
-            }
-          >
-            {vaccinatingLoading ? 'Recording...' : 'Record Vaccinations'}
-          </Button>
+          <div className="d-flex justify-content-between w-100">
+            <Button 
+              variant="outline-info" 
+              size="sm"
+              onClick={() => {
+                // Refresh the student list
+                fetchEligibleStudents(drive);
+                toast.info('Refreshing student list...');
+              }}
+            >
+              Refresh Students
+            </Button>
+            
+            <div>
+              <Button variant="secondary" onClick={() => setShowVaccinateModal(false)} className="me-2">
+                Cancel
+              </Button>
+              <Button 
+                variant="success" 
+                onClick={handleVaccinate} 
+                disabled={
+                  selectedStudents.length === 0 || 
+                  selectedStudents.length > remainingDoses ||
+                  vaccinatingLoading
+                }
+              >
+                {vaccinatingLoading ? 'Recording...' : 'Record Vaccinations'}
+              </Button>
+            </div>
+          </div>
         </Modal.Footer>
       </Modal>
     </div>

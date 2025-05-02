@@ -77,7 +77,7 @@ const Dashboard = () => {
     <div>
       <div className="page-header">
         <h1>Dashboard</h1>
-        <p className="text-muted">Overview of vaccination status and upcoming drives</p>
+        <p className="page-description">Overview of vaccination status and upcoming drives</p>
       </div>
 
       {/* Stats Cards */}
@@ -119,11 +119,11 @@ const Dashboard = () => {
       {/* Charts */}
       <Row className="mb-4">
         <Col md={6}>
-          <Card className="chart-container h-100">
-            <Card.Header>
+          <Card className="chart-container h-100" style={{ backgroundColor: 'var(--card-bg)' }}>
+            <Card.Header style={{ backgroundColor: 'var(--gray-200)', borderBottomColor: 'var(--border-color)' }}>
               <h5 className="m-0">Vaccinations by Type</h5>
             </Card.Header>
-            <Card.Body>
+            <Card.Body style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-color)' }}>
               {stats?.vaccinationsByType?.length > 0 ? (
                 <Pie data={vaccinationTypeData} options={{ responsive: true }} />
               ) : (
@@ -133,11 +133,11 @@ const Dashboard = () => {
           </Card>
         </Col>
         <Col md={6}>
-          <Card className="chart-container h-100">
-            <Card.Header>
+          <Card className="chart-container h-100" style={{ backgroundColor: 'var(--card-bg)' }}>
+            <Card.Header style={{ backgroundColor: 'var(--gray-200)', borderBottomColor: 'var(--border-color)' }}>
               <h5 className="m-0">Recent Vaccination Drives</h5>
             </Card.Header>
-            <Card.Body>
+            <Card.Body style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-color)' }}>
               {stats?.recentDrives?.length > 0 ? (
                 <Bar 
                   data={recentDrivesData} 
@@ -164,14 +164,15 @@ const Dashboard = () => {
       {/* Upcoming Drives */}
       <Row>
         <Col>
-          <Card className="table-container">
-            <Card.Header className="d-flex justify-content-between align-items-center">
+          <Card className="table-container" style={{ backgroundColor: 'var(--card-bg)' }}>
+            <Card.Header className="d-flex justify-content-between align-items-center" 
+                         style={{ backgroundColor: 'var(--gray-200)', borderBottomColor: 'var(--border-color)' }}>
               <h5 className="m-0">Upcoming Vaccination Drives</h5>
               <Link to="/vaccination-drives">
                 <Button variant="outline-primary" size="sm">View All</Button>
               </Link>
             </Card.Header>
-            <Card.Body>
+            <Card.Body style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-color)' }}>
               {stats?.upcomingDrives?.length > 0 ? (
                 <Table responsive hover>
                   <thead>
@@ -191,7 +192,11 @@ const Dashboard = () => {
                         <td>{drive.vaccineName}</td>
                         <td>{moment(drive.date).format('MMM DD, YYYY')}</td>
                         <td>{drive.availableDoses}</td>
-                        <td>{drive.applicableGrades.join(', ')}</td>
+                        <td>
+                          {drive.applicableGrades && Array.isArray(drive.applicableGrades) && drive.applicableGrades.length > 0 
+                            ? drive.applicableGrades.join(', ') 
+                            : 'All Grades'}
+                        </td>
                         <td>
                           <Link to={`/vaccination-drives/${drive.id}`}>
                             <Button variant="outline-info" size="sm">View</Button>

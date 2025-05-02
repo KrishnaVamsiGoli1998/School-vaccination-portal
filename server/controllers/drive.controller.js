@@ -296,13 +296,18 @@ exports.recordVaccinations = async (req, res) => {
       });
     }
     
-    // Check if the drive is in the past
+    // Check if the drive is in the future (more than 1 day ahead)
     const driveDate = new Date(drive.date);
     const today = new Date();
     
-    if (driveDate > today) {
+    // Allow recording on the day of the drive or past drives
+    // Add 1 day buffer to account for timezone differences
+    const oneDayAhead = new Date(today);
+    oneDayAhead.setDate(today.getDate() + 1);
+    
+    if (driveDate > oneDayAhead) {
       return res.status(400).send({
-        message: 'Cannot record vaccinations for future drives!'
+        message: 'Cannot record vaccinations for future drives! You can only record vaccinations on or after the drive date.'
       });
     }
     

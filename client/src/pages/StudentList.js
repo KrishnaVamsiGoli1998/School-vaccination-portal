@@ -235,9 +235,9 @@ const StudentList = () => {
           {loading ? (
             <div className="text-center my-5">Loading students...</div>
           ) : students.length > 0 ? (
-            <Table responsive hover>
+            <Table responsive hover style={{ color: 'var(--text-color)' }}>
               <thead>
-                <tr>
+                <tr style={{ backgroundColor: 'var(--gray-100)' }}>
                   <th>Student ID</th>
                   <th>Name</th>
                   <th>Grade</th>
@@ -250,7 +250,7 @@ const StudentList = () => {
               </thead>
               <tbody>
                 {students.map(student => (
-                  <tr key={student.id}>
+                  <tr key={student.id} style={{ color: 'var(--text-color)' }}>
                     <td>{student.studentId}</td>
                     <td>{student.name}</td>
                     <td>{student.grade}</td>

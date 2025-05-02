@@ -77,7 +77,13 @@ const initializeDatabase = async () => {
     for (const statement of statements) {
       // Skip commented lines and CREATE DATABASE statement
       if (!statement.trim().startsWith('--') && !statement.includes('CREATE DATABASE')) {
-        await appSequelize.query(statement);
+        try {
+          await appSequelize.query(statement, { raw: true });
+          console.log('Executed statement successfully');
+        } catch (err) {
+          console.log('Error executing statement:', err.message);
+          // Continue with other statements even if one fails
+        }
       }
     }
 

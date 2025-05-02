@@ -5,7 +5,7 @@ const StatsCard = ({ title, value, icon, description, color }) => {
   const IconComponent = icon;
   
   return (
-    <Card className="stats-card h-100">
+    <Card className="stats-card h-100" data-testid="stats-card">
       <Card.Body>
         <div className="stats-icon" style={{ color: color || '#007bff' }}>
           <IconComponent />

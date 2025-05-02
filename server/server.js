@@ -52,14 +52,17 @@ const startServer = async () => {
     // First initialize the database (create if not exists and run schema)
     const dbInitialized = await initializeDatabase();
     
-    if (!dbInitialized) {
-      console.error('Failed to initialize database. Server will not start.');
-      process.exit(1);
-    }
+    // Even if database initialization fails, try to continue
+    // as the tables might already exist
     
-    // Then sync Sequelize models
-    await sequelize.sync();
-    console.log('Database synchronized successfully');
+    try {
+      // Then sync Sequelize models
+      await sequelize.sync({ alter: true });
+      console.log('Database synchronized successfully');
+    } catch (syncError) {
+      console.error('Error syncing database models:', syncError.message);
+      // Continue anyway to try to start the server
+    }
     
     // Start the server
     app.listen(PORT, () => {

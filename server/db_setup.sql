@@ -65,9 +65,9 @@ CREATE INDEX idx_vaccination_drives_date ON "vaccinationDrives"(date);
 CREATE INDEX idx_vaccinations_student_id ON vaccinations("studentId");
 CREATE INDEX idx_vaccinations_drive_id ON vaccinations("driveId");
 
--- Insert demo admin user (password: admin123)
+-- Insert demo admin user (password: Vax@Portal2025!)
 INSERT INTO users (username, password, name, role)
-VALUES ('admin', '$2a$08$YQzVfYUPQwMdEzlj1X0WIeQeUh6mBGxGtF1UD9UVG9R7BhPwQlOyS', 'School Coordinator', 'coordinator')
+VALUES ('admin', '$2a$10$XFE0rQyZ5GfZmZuiYuV.guYgEX6.m0n/9IdpdYCOjJfK1.IpRYFLC', 'School Coordinator', 'coordinator')
 ON CONFLICT (username) DO NOTHING;
 
 -- Insert sample data for testing

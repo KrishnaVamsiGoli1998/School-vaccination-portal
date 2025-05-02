@@ -124,7 +124,7 @@ The client will run on http://localhost:3000
 For testing purposes, you can use the following credentials:
 
 - **Username**: admin
-- **Password**: admin123
+- **Password**: Vax@Portal2025!
 
 ## Project Structure
 

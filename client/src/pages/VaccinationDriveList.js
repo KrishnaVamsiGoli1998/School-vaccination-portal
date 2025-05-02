@@ -143,7 +143,11 @@ const VaccinationDriveList = () => {
                     </td>
                     <td>{drive.availableDoses}</td>
                     <td>{drive.vaccinatedCount || 0}</td>
-                    <td>{drive.applicableGrades.join(', ')}</td>
+                    <td>
+                      {drive.applicableGrades && Array.isArray(drive.applicableGrades) && drive.applicableGrades.length > 0 
+                        ? drive.applicableGrades.join(', ') 
+                        : 'All Grades'}
+                    </td>
                     <td>{getStatusBadge(drive.status, drive.date)}</td>
                     <td>
                       <Link to={`/vaccination-drives/${drive.id}`} className="btn btn-sm btn-outline-info me-2">
