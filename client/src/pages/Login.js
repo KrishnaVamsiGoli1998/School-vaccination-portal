@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Form, Button, Alert } from 'react-bootstrap';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import AuthService from '../services/auth.service';
 
 const Login = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [darkMode, setDarkMode] = useState(false);
@@ -56,11 +54,8 @@ const Login = () => {
     setMessage('');
     setLoading(true);
 
-    console.log('Attempting login with:', username);
-    
     AuthService.login(username, password)
       .then((data) => {
-        console.log('Login successful:', data);
         // The AuthService already sets the user in localStorage
         // Force a page reload to ensure the app picks up the new auth state
         window.location.href = '/dashboard';

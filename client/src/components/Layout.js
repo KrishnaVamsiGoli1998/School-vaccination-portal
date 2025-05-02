@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { Container } from 'react-bootstrap';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import AuthService from '../services/auth.service';
 
 const Layout = () => {
-  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   
@@ -54,7 +53,6 @@ const Layout = () => {
   }, [sidebarCollapsed]);
 
   const handleLogout = () => {
-    console.log('Layout: Logging out');
     // AuthService.logout already handles the redirect
     AuthService.logout();
   };

@@ -1,0 +1,1022 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "School Vaccination Portal API",
+    "version": "1.0.0",
+    "description": "API documentation for the School Vaccination Portal",
+    "contact": {
+      "name": "API Support",
+      "email": "support@vaccinationportal.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "User ID"
+          },
+          "username": {
+            "type": "string",
+            "description": "Username for login"
+          },
+          "name": {
+            "type": "string",
+            "description": "Full name of the user"
+          },
+          "role": {
+            "type": "string",
+            "description": "User role (coordinator)"
+          }
+        }
+      },
+      "Student": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Student ID"
+          },
+          "studentId": {
+            "type": "string",
+            "description": "Student identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Student name"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "format": "date",
+            "description": "Date of birth"
+          },
+          "gender": {
+            "type": "string",
+            "description": "Student gender"
+          },
+          "grade": {
+            "type": "string",
+            "description": "Student grade"
+          },
+          "section": {
+            "type": "string",
+            "description": "Student section"
+          },
+          "parentName": {
+            "type": "string",
+            "description": "Parent name"
+          },
+          "contactNumber": {
+            "type": "string",
+            "description": "Contact number"
+          },
+          "address": {
+            "type": "string",
+            "description": "Student address"
+          }
+        }
+      },
+      "VaccinationDrive": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Drive ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Drive name"
+          },
+          "vaccineName": {
+            "type": "string",
+            "description": "Vaccine name"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Drive date"
+          },
+          "availableDoses": {
+            "type": "integer",
+            "description": "Number of available doses"
+          },
+          "applicableGrades": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Grades applicable for this drive"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["scheduled", "completed", "cancelled"],
+            "description": "Drive status"
+          },
+          "description": {
+            "type": "string",
+            "description": "Drive description"
+          }
+        }
+      },
+      "Vaccination": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Vaccination ID"
+          },
+          "studentId": {
+            "type": "integer",
+            "description": "Student ID"
+          },
+          "driveId": {
+            "type": "integer",
+            "description": "Drive ID"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Vaccination date"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Vaccination notes"
+          },
+          "administeredBy": {
+            "type": "string",
+            "description": "Person who administered the vaccine"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user",
+        "description": "Creates a new user account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "example": "newuser"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "Password123!"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "New User"
+                  }
+                },
+                "required": ["username", "password", "name"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "User registered successfully!"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login user",
+        "description": "Authenticates a user and returns a JWT token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "example": "admin"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "Vax@Portal2025!"
+                  }
+                },
+                "required": ["username", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "username": {
+                      "type": "string",
+                      "example": "admin"
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "School Coordinator"
+                    },
+                    "role": {
+                      "type": "string",
+                      "example": "coordinator"
+                    },
+                    "accessToken": {
+                      "type": "string",
+                      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students": {
+      "get": {
+        "tags": ["Students"],
+        "summary": "Get all students",
+        "description": "Returns a list of all students",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of students",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Student"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Students"],
+        "summary": "Create a new student",
+        "description": "Creates a new student record",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Student"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Student created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Student"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/{id}": {
+      "get": {
+        "tags": ["Students"],
+        "summary": "Get a student by ID",
+        "description": "Returns a single student by ID",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Student ID",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A student object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Student"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Student not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Students"],
+        "summary": "Update a student",
+        "description": "Updates a student record",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Student ID",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Student"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Student updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Student"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Student not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Students"],
+        "summary": "Delete a student",
+        "description": "Deletes a student record",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Student ID",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Student deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Student deleted successfully!"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Student not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/drives": {
+      "get": {
+        "tags": ["Vaccination Drives"],
+        "summary": "Get all vaccination drives",
+        "description": "Returns a list of all vaccination drives",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of vaccination drives",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VaccinationDrive"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Vaccination Drives"],
+        "summary": "Create a new vaccination drive",
+        "description": "Creates a new vaccination drive",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaccinationDrive"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Vaccination drive created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaccinationDrive"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/drives/{id}/vaccinate": {
+      "post": {
+        "tags": ["Vaccination Drives"],
+        "summary": "Record vaccinations for students",
+        "description": "Records vaccinations for multiple students in a drive",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Vaccination Drive ID",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "studentIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Array of student IDs to vaccinate"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Vaccination date"
+                  },
+                  "administeredBy": {
+                    "type": "string",
+                    "description": "Person who administered the vaccine"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "Vaccination notes"
+                  }
+                },
+                "required": ["studentIds", "date"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vaccinations recorded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Vaccinations recorded successfully"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "example": 5
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Vaccination drive not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/stats": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get dashboard statistics",
+        "description": "Returns statistics for the dashboard",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalStudents": {
+                      "type": "integer",
+                      "example": 250
+                    },
+                    "totalVaccinations": {
+                      "type": "integer",
+                      "example": 180
+                    },
+                    "upcomingDrives": {
+                      "type": "integer",
+                      "example": 3
+                    },
+                    "vaccinationsByGrade": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "grade": {
+                            "type": "string",
+                            "example": "Grade 5"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "example": 45
+                          }
+                        }
+                      }
+                    },
+                    "vaccinationsByType": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "vaccineName": {
+                            "type": "string",
+                            "example": "MMR"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "example": 75
+                          }
+                        }
+                      }
+                    },
+                    "recentDrives": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "example": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "example": "Annual Flu Vaccination"
+                          },
+                          "date": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2023-10-15"
+                          },
+                          "status": {
+                            "type": "string",
+                            "example": "completed"
+                          },
+                          "vaccinationCount": {
+                            "type": "integer",
+                            "example": 85
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/generate": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Generate vaccination report",
+        "description": "Generates a vaccination report based on filters",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "description": "Start date for report (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "description": "End date for report (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "grade",
+            "in": "query",
+            "description": "Filter by grade",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vaccineName",
+            "in": "query",
+            "description": "Filter by vaccine name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Report format (csv or json)",
+            "schema": {
+              "type": "string",
+              "enum": ["csv", "json"],
+              "default": "csv"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report generated successfully",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "studentId": {
+                        "type": "string",
+                        "example": "S12345"
+                      },
+                      "studentName": {
+                        "type": "string",
+                        "example": "John Doe"
+                      },
+                      "grade": {
+                        "type": "string",
+                        "example": "Grade 5"
+                      },
+                      "vaccineName": {
+                        "type": "string",
+                        "example": "MMR"
+                      },
+                      "date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2023-10-15"
+                      },
+                      "driveName": {
+                        "type": "string",
+                        "example": "Annual Flu Vaccination"
+                      },
+                      "administeredBy": {
+                        "type": "string",
+                        "example": "Dr. Smith"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

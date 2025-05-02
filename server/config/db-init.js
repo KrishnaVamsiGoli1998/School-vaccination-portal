@@ -5,7 +5,7 @@ const config = require('./db.config');
 
 // Create a separate connection to postgres database to create our app database if it doesn't exist
 const initializeDatabase = async () => {
-  console.log('Checking database...');
+  // Checking database...
   
   // First connect to the postgres database to be able to create our app database
   const adminSequelize = new Sequelize('postgres', config.USER, config.PASSWORD, {

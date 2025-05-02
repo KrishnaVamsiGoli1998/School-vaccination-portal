@@ -4,17 +4,13 @@ const API_URL = '/api/auth/';
 
 class AuthService {
   login(username, password) {
-    console.log('AuthService: Attempting login');
     return axios
       .post(API_URL + 'demo-login', {
         username,
         password
       })
       .then(response => {
-        console.log('AuthService: Login response received:', response.data);
-        
         if (response.data && response.data.accessToken) {
-          console.log('AuthService: Valid token received, storing user');
           // Store user in localStorage
           localStorage.setItem('user', JSON.stringify(response.data));
           
@@ -23,18 +19,15 @@ class AuthService {
           
           return response.data;
         } else {
-          console.error('AuthService: No token in response');
           throw new Error('No access token received');
         }
       })
       .catch(error => {
-        console.error('AuthService: Login error:', error);
         throw error;
       });
   }
 
   logout() {
-    console.log('AuthService: Logging out');
     localStorage.removeItem('user');
     
     // Dispatch a storage event to notify other tabs

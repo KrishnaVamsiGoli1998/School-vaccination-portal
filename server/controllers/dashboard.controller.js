@@ -94,7 +94,6 @@ exports.getStats = async (req, res) => {
       recentDrives: recentDrivesWithCount
     };
     
-    console.log('Dashboard stats response:', response);
     res.send(response);
   } catch (error) {
     res.status(500).send({

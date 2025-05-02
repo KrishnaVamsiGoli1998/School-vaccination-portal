@@ -52,14 +52,9 @@ const VaccinationDriveDetails = () => {
           (driveData.vaccinations || []).map(v => v.studentId)
         );
         
-        console.log('Fetched students:', response.data);
-        console.log('Vaccinated student IDs:', Array.from(vaccinatedStudentIds));
-        
         const eligibleStudents = response.data.filter(
           student => !vaccinatedStudentIds.has(student.id)
         );
-        
-        console.log('Eligible students:', eligibleStudents);
         
         setStudents(eligibleStudents);
         setFilteredStudents(eligibleStudents);
@@ -76,9 +71,6 @@ const VaccinationDriveDetails = () => {
     const term = e.target.value;
     setSearchTerm(term);
     
-    console.log('Search term:', term);
-    console.log('All students:', students);
-    
     if (!term.trim()) {
       setFilteredStudents(students);
     } else {
@@ -88,7 +80,6 @@ const VaccinationDriveDetails = () => {
           (student.studentId && student.studentId.toLowerCase().includes(term.toLowerCase())) ||
           (student.grade && student.grade.toString().includes(term))
       );
-      console.log('Filtered students:', filtered);
       setFilteredStudents(filtered);
     }
   };

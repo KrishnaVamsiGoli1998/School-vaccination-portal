@@ -27,13 +27,10 @@ function App() {
   useEffect(() => {
     // Check for user in localStorage
     const user = AuthService.getCurrentUser();
-    console.log('Current user from localStorage:', user);
     
     if (user && user.accessToken) {
-      console.log('Valid user found with token');
       setCurrentUser(user);
     } else {
-      console.log('No valid user found in localStorage');
       // Clear any invalid user data
       localStorage.removeItem('user');
     }
