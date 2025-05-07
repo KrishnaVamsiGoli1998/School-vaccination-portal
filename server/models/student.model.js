@@ -16,7 +16,7 @@ module.exports = (sequelize, Sequelize) => {
     },
     dateOfBirth: {
       type: Sequelize.DATEONLY,
-      allowNull: false
+      allowNull: true // Changed to true to allow imports without date
     },
     gender: {
       type: Sequelize.STRING,

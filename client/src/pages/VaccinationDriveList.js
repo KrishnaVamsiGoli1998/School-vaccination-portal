@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Badge, Row, Col, Form, Modal } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
-import { FaPlus, FaEye, FaEdit, FaTrash, FaCalendarAlt } from 'react-icons/fa';
+import { Link, useLocation } from 'react-router-dom';
+import { FaPlus, FaEye, FaEdit, FaTrash, FaCalendarAlt, FaSyncAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import DriveService from '../services/drive.service';
@@ -13,13 +13,30 @@ const VaccinationDriveList = () => {
   const [filter, setFilter] = useState('all');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [driveToDelete, setDriveToDelete] = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+  const location = useLocation();
 
+  // Fetch drives when component mounts, filter changes, or when navigating back to this page
   useEffect(() => {
     fetchDrives();
-  }, [filter]);
+    console.log('Fetching drives due to location or filter change');
+  }, [filter, location.key]);
+  
+  // Also refresh data periodically
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchDrives(false); // Silent refresh without loading indicator
+      setLastRefresh(new Date());
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, []);
 
-  const fetchDrives = () => {
-    setLoading(true);
+  const fetchDrives = (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
+    
     const params = {};
     
     if (filter === 'upcoming') {
@@ -28,15 +45,22 @@ const VaccinationDriveList = () => {
       params.past = true;
     }
     
+    console.log('Fetching drives with params:', params);
+    
     DriveService.getAll(params)
       .then(response => {
+        console.log('Fetched drives:', response.data);
         setDrives(response.data);
-        setLoading(false);
+        if (showLoading) {
+          setLoading(false);
+        }
       })
       .catch(error => {
         console.error('Error fetching vaccination drives:', error);
-        toast.error('Failed to load vaccination drives');
-        setLoading(false);
+        if (showLoading) {
+          toast.error('Failed to load vaccination drives');
+          setLoading(false);
+        }
       });
   };
 
@@ -109,6 +133,22 @@ const VaccinationDriveList = () => {
                   <option value="past">Past Drives</option>
                 </Form.Control>
               </Form.Group>
+            </Col>
+            <Col md={6} className="d-flex justify-content-end align-items-end">
+              <div>
+                <Button 
+                  variant="outline-secondary" 
+                  onClick={() => fetchDrives(true)}
+                  disabled={loading}
+                  className="d-flex align-items-center"
+                >
+                  <FaSyncAlt className={loading ? "me-2 spin" : "me-2"} /> 
+                  Refresh List
+                </Button>
+                <div className="text-muted small mt-1">
+                  Last updated: {moment(lastRefresh).format('h:mm:ss A')}
+                </div>
+              </div>
             </Col>
           </Row>
         </Card.Body>

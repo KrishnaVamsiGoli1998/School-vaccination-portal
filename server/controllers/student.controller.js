@@ -185,6 +185,43 @@ exports.delete = async (req, res) => {
   }
 };
 
+// Helper function to format date
+const formatDateForDB = (dateString) => {
+  // Check if it matches DD-MM-YYYY format
+  const ddmmyyyyPattern = /^(\d{2})-(\d{2})-(\d{4})$/;
+  if (ddmmyyyyPattern.test(dateString)) {
+    const matches = dateString.match(ddmmyyyyPattern);
+    const day = matches[1];
+    const month = matches[2];
+    const year = matches[3];
+    
+    // Validate the date components
+    const dayNum = parseInt(day, 10);
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
+    
+    if (monthNum < 1 || monthNum > 12) {
+      return { error: `Invalid month: ${month}. Month must be between 01 and 12.` };
+    }
+    
+    // Check days per month (simplified)
+    const daysInMonth = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    // Adjust for leap year
+    if (yearNum % 400 === 0 || (yearNum % 100 !== 0 && yearNum % 4 === 0)) {
+      daysInMonth[2] = 29;
+    }
+    
+    if (dayNum < 1 || dayNum > daysInMonth[monthNum]) {
+      return { error: `Invalid day: ${day}. Day must be between 01 and ${daysInMonth[monthNum]} for month ${month}.` };
+    }
+    
+    // Return the formatted date in YYYY-MM-DD format
+    return { value: `${year}-${month}-${day}` };
+  }
+  
+  return { error: 'Date must be in DD-MM-YYYY format with hyphens (e.g., 21-07-1998).' };
+};
+
 // Bulk import students from CSV
 exports.bulkImport = async (req, res) => {
   try {
@@ -194,35 +231,109 @@ exports.bulkImport = async (req, res) => {
       });
     }
 
+    // Check file content
+    const fileContent = fs.readFileSync(req.file.path, 'utf8');
+    
+    // Check if the file has proper CSV format with commas
+    if (!fileContent.includes(',')) {
+      // Try to detect if this is a CSV without proper delimiters
+      const firstLine = fileContent.split('\n')[0];
+      
+      if (firstLine && firstLine.includes('studentId') && !firstLine.includes(',')) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).send({
+          message: 'Invalid CSV format. Your file appears to be missing comma separators between fields. Please ensure your CSV file has proper comma-separated values.',
+          example: 'studentId,name,dateOfBirth,gender,grade,section,parentName,contactNumber,address'
+        });
+      }
+    }
+
     const students = [];
     const errors = [];
     let rowCount = 0;
+    let headerValidated = false;
 
     fs.createReadStream(req.file.path)
-      .pipe(csv())
+      .pipe(csv({
+        // Add more options to make CSV parsing more robust
+        skipLines: 0,
+        strict: true,
+        trim: true
+      }))
+      .on('headers', (headers) => {
+        // Validate headers
+        const requiredHeaders = ['studentId', 'name', 'grade'];
+        const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+        
+        if (missingHeaders.length > 0) {
+          errors.push(`CSV headers missing required fields: ${missingHeaders.join(', ')}`);
+        }
+        
+        headerValidated = true;
+      })
       .on('data', (row) => {
         rowCount++;
+        
+        // Log the row for debugging
+        console.log(`Processing row ${rowCount}:`, JSON.stringify(row));
+        
         // Validate required fields
         if (!row.studentId || !row.name || !row.grade) {
           errors.push(`Row ${rowCount}: Missing required fields (studentId, name, grade)`);
           return;
         }
         
-        students.push({
-          studentId: row.studentId,
-          name: row.name,
-          dateOfBirth: row.dateOfBirth,
-          gender: row.gender,
-          grade: row.grade,
-          section: row.section,
-          parentName: row.parentName,
-          contactNumber: row.contactNumber,
-          address: row.address
-        });
+        // Process date of birth if present
+        let dateOfBirth = null;
+        if (row.dateOfBirth && row.dateOfBirth.trim() !== '') {
+          const dateResult = formatDateForDB(row.dateOfBirth.trim());
+          if (dateResult.error) {
+            errors.push(`Row ${rowCount}: ${dateResult.error}`);
+            return;
+          }
+          dateOfBirth = dateResult.value;
+          console.log(`Converted date from ${row.dateOfBirth} to ${dateOfBirth}`);
+        }
+        
+        // Validate gender if present
+        if (row.gender && !['Male', 'Female', 'Other'].includes(row.gender)) {
+          errors.push(`Row ${rowCount}: Invalid gender value. Use 'Male', 'Female', or 'Other'.`);
+          return;
+        }
+        
+        // Create student object with properly formatted data
+        const student = {
+          studentId: row.studentId.trim(),
+          name: row.name.trim(),
+          grade: row.grade.trim(),
+          gender: row.gender ? row.gender.trim() : null,
+          section: row.section ? row.section.trim() : null,
+          parentName: row.parentName ? row.parentName.trim() : null,
+          contactNumber: row.contactNumber ? row.contactNumber.trim() : null,
+          address: row.address ? row.address.trim() : null
+        };
+        
+        // Only add dateOfBirth if it's valid
+        if (dateOfBirth) {
+          student.dateOfBirth = dateOfBirth;
+        }
+        
+        students.push(student);
+      })
+      .on('error', (error) => {
+        console.error('CSV parsing error:', error);
+        errors.push(`CSV parsing error: ${error.message}`);
       })
       .on('end', async () => {
         // Remove the temporary file
         fs.unlinkSync(req.file.path);
+        
+        if (!headerValidated) {
+          return res.status(400).send({
+            message: 'CSV file format error. Could not parse headers.',
+            example: 'studentId,name,dateOfBirth,gender,grade,section,parentName,contactNumber,address'
+          });
+        }
         
         if (errors.length > 0) {
           return res.status(400).send({
@@ -238,22 +349,71 @@ exports.bulkImport = async (req, res) => {
         }
         
         try {
-          // Bulk create students
-          await Student.bulkCreate(students, {
-            validate: true,
-            ignoreDuplicates: true
-          });
+          // Log what we're trying to insert for debugging
+          console.log('Attempting to insert students:', JSON.stringify(students, null, 2));
+          
+          // Insert students one by one to better handle errors
+          const results = [];
+          const failedRows = [];
+          
+          for (let i = 0; i < students.length; i++) {
+            try {
+              const student = students[i];
+              const result = await Student.create(student);
+              results.push(result);
+            } catch (error) {
+              console.error(`Error inserting row ${i+1}:`, error.message);
+              failedRows.push({
+                rowNumber: i+1,
+                student: students[i],
+                error: error.message
+              });
+            }
+          }
+          
+          if (failedRows.length > 0) {
+            return res.status(207).send({
+              message: `Imported ${results.length} out of ${students.length} students. ${failedRows.length} rows failed.`,
+              failedRows: failedRows.map(row => ({
+                rowNumber: row.rowNumber,
+                studentId: row.student.studentId,
+                error: row.error
+              }))
+            });
+          }
           
           res.status(200).send({
-            message: `${students.length} students were imported successfully!`
+            message: `${results.length} students were imported successfully!`
           });
         } catch (error) {
+          console.error('Error during bulk create:', error);
+          
+          // Provide more specific error messages based on the error
+          let errorMessage = error.message || 'Some error occurred while importing students.';
+          
+          // Check for common error patterns and provide more helpful messages
+          if (errorMessage.includes('date/time field value out of range') || 
+              errorMessage.includes('invalid input syntax for type date')) {
+            errorMessage = 'Invalid date format. Please ensure all dates are in DD-MM-YYYY format (e.g., 21-07-1998) and are valid dates.';
+          }
+          
           res.status(500).send({
-            message: error.message || 'Some error occurred while importing students.'
+            message: errorMessage
           });
         }
       });
   } catch (error) {
+    console.error('Error in bulkImport:', error);
+    
+    // Try to clean up the file if it exists
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (unlinkError) {
+        console.error('Error deleting temporary file:', unlinkError);
+      }
+    }
+    
     res.status(500).send({
       message: error.message || 'Some error occurred while processing the file.'
     });

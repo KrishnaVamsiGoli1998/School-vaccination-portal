@@ -61,7 +61,8 @@ exports.create = async (req, res) => {
 // Retrieve all vaccination drives
 exports.findAll = async (req, res) => {
   try {
-    const { upcoming, past, status } = req.query;
+    console.log('Fetching all vaccination drives with query params:', req.query);
+    const { upcoming, past, status, t } = req.query; // t is timestamp for cache busting
     let condition = {};
     
     // Filter by status if provided
@@ -89,6 +90,10 @@ exports.findAll = async (req, res) => {
       };
     }
 
+    // Force a database sync to ensure we get the latest data
+    await db.sequelize.query('SELECT 1+1 as result');
+
+    // Get all drives with their vaccinations
     const drives = await VaccinationDrive.findAll({
       where: condition,
       include: [{
@@ -98,15 +103,34 @@ exports.findAll = async (req, res) => {
       order: [['date', 'ASC']]
     });
 
-    // Add vaccination count to each drive
-    const drivesWithCount = drives.map(drive => {
+    console.log(`Found ${drives.length} vaccination drives`);
+
+    // Process each drive to get accurate vaccination counts
+    const drivesWithCount = await Promise.all(drives.map(async (drive) => {
       const plainDrive = drive.get({ plain: true });
-      plainDrive.vaccinatedCount = plainDrive.vaccinations ? plainDrive.vaccinations.length : 0;
+      
+      // Get the actual count from the database to ensure accuracy
+      const vaccinationCount = await Vaccination.count({
+        where: { driveId: drive.id }
+      });
+      
+      plainDrive.vaccinatedCount = vaccinationCount;
+      
+      // Remove the vaccinations array to reduce payload size
+      delete plainDrive.vaccinations;
+      
       return plainDrive;
-    });
+    }));
+
+    // Set cache control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
 
     res.send(drivesWithCount);
   } catch (error) {
+    console.error('Error retrieving vaccination drives:', error);
     res.status(500).send({
       message: error.message || 'Some error occurred while retrieving vaccination drives.'
     });
@@ -117,17 +141,10 @@ exports.findAll = async (req, res) => {
 exports.findOne = async (req, res) => {
   try {
     const id = req.params.id;
+    console.log(`Finding vaccination drive with ID: ${id}`);
     
-    const drive = await VaccinationDrive.findByPk(id, {
-      include: [{
-        model: Vaccination,
-        as: 'vaccinations',
-        include: [{
-          model: Student,
-          as: 'student'
-        }]
-      }]
-    });
+    // First, get the basic drive data
+    const drive = await VaccinationDrive.findByPk(id);
     
     if (!drive) {
       return res.status(404).send({
@@ -135,12 +152,51 @@ exports.findOne = async (req, res) => {
       });
     }
     
-    // Add vaccination count
+    // Get all vaccinations for this drive with student data
+    const vaccinations = await Vaccination.findAll({
+      where: { driveId: id },
+      include: [{
+        model: Student,
+        as: 'student'
+      }]
+    });
+    
+    console.log(`Found ${vaccinations.length} vaccinations for drive ${id}`);
+    
+    // Create a response object with all the data needed
     const plainDrive = drive.get({ plain: true });
-    plainDrive.vaccinatedCount = plainDrive.vaccinations ? plainDrive.vaccinations.length : 0;
+    plainDrive.vaccinations = vaccinations.map(v => v.get({ plain: true }));
+    plainDrive.vaccinatedCount = vaccinations.length;
+    
+    // Log the data being sent back for debugging
+    console.log(`Drive ${id} data:`, {
+      availableDoses: plainDrive.availableDoses,
+      vaccinatedCount: plainDrive.vaccinatedCount,
+      totalVaccinations: plainDrive.vaccinations.length,
+      vaccinationIds: plainDrive.vaccinations.map(v => v.id)
+    });
+    
+    // Log the first vaccination for debugging if available
+    if (plainDrive.vaccinations.length > 0) {
+      console.log('First vaccination:', {
+        id: plainDrive.vaccinations[0].id,
+        studentId: plainDrive.vaccinations[0].studentId,
+        student: plainDrive.vaccinations[0].student ? {
+          id: plainDrive.vaccinations[0].student.id,
+          name: plainDrive.vaccinations[0].student.name
+        } : 'No student data'
+      });
+    }
+    
+    // Set cache control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
     
     res.send(plainDrive);
   } catch (error) {
+    console.error('Error retrieving drive:', error);
     res.status(500).send({
       message: `Error retrieving vaccination drive with id ${req.params.id}`
     });
@@ -348,18 +404,107 @@ exports.recordVaccinations = async (req, res) => {
       administeredBy: req.body.administeredBy || 'School Coordinator'
     }));
     
-    await Vaccination.bulkCreate(vaccinations);
+    console.log('Creating vaccinations:', vaccinations);
     
-    // Update drive status if all doses are used
-    if (existingVaccinationsCount + studentIds.length >= drive.availableDoses) {
-      await VaccinationDrive.update(
-        { status: 'completed' },
-        { where: { id: driveId } }
-      );
+    // Create vaccinations one by one to ensure they're properly created
+    const createdVaccinations = [];
+    for (const vaccination of vaccinations) {
+      try {
+        const created = await Vaccination.create(vaccination);
+        createdVaccinations.push(created);
+        console.log(`Created vaccination with ID ${created.id} for student ${vaccination.studentId}`);
+      } catch (error) {
+        console.error(`Error creating vaccination for student ${vaccination.studentId}:`, error);
+        throw error;
+      }
     }
     
+    console.log(`Successfully created ${createdVaccinations.length} vaccinations`);
+    
+    // Calculate new available doses count
+    const newAvailableDoses = drive.availableDoses - studentIds.length;
+    
+    console.log(`Updating drive ${driveId}: Available doses from ${drive.availableDoses} to ${newAvailableDoses}`);
+    
+    // Update drive with new available doses count and status if needed
+    if (newAvailableDoses <= 0) {
+      // If no doses left, mark as completed
+      await VaccinationDrive.update(
+        { 
+          status: 'completed',
+          availableDoses: 0 // Ensure it doesn't go negative
+        },
+        { 
+          where: { id: driveId },
+          returning: true // Get the updated record
+        }
+      );
+      console.log(`Drive ${driveId} marked as completed with 0 available doses`);
+    } else {
+      // Otherwise just update the available doses
+      await VaccinationDrive.update(
+        { availableDoses: newAvailableDoses },
+        { 
+          where: { id: driveId },
+          returning: true // Get the updated record
+        }
+      );
+      console.log(`Drive ${driveId} updated with ${newAvailableDoses} available doses`);
+    }
+    
+    // Force a database sync to ensure changes are committed
+    await db.sequelize.sync();
+    
+    // Force a fresh query to get the most up-to-date data
+    await db.sequelize.query('SELECT 1+1 as result');
+    
+    // Get the updated drive data to send back with no caching
+    const updatedDrive = await VaccinationDrive.findByPk(driveId, {
+      include: [{
+        model: Vaccination,
+        as: 'vaccinations',
+        include: [{
+          model: Student,
+          as: 'student'
+        }]
+      }],
+      // Use a new transaction to ensure we get the latest data
+      transaction: null
+    });
+    
+    const plainUpdatedDrive = updatedDrive.get({ plain: true });
+    plainUpdatedDrive.vaccinatedCount = plainUpdatedDrive.vaccinations ? plainUpdatedDrive.vaccinations.length : 0;
+    
+    console.log(`Drive ${driveId} updated data:`, {
+      availableDoses: plainUpdatedDrive.availableDoses,
+      vaccinatedCount: plainUpdatedDrive.vaccinatedCount,
+      totalVaccinations: plainUpdatedDrive.vaccinations ? plainUpdatedDrive.vaccinations.length : 0,
+      vaccinationIds: plainUpdatedDrive.vaccinations ? plainUpdatedDrive.vaccinations.map(v => v.id) : []
+    });
+    
+    // Log the first vaccination for debugging
+    if (plainUpdatedDrive.vaccinations && plainUpdatedDrive.vaccinations.length > 0) {
+      console.log('First vaccination:', {
+        id: plainUpdatedDrive.vaccinations[0].id,
+        studentId: plainUpdatedDrive.vaccinations[0].studentId,
+        student: plainUpdatedDrive.vaccinations[0].student ? {
+          id: plainUpdatedDrive.vaccinations[0].student.id,
+          name: plainUpdatedDrive.vaccinations[0].student.name
+        } : 'No student data'
+      });
+    } else {
+      console.log('No vaccinations found in the updated drive data');
+    }
+    
+    // Set cache control headers
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    
     res.status(201).send({
-      message: `${studentIds.length} vaccinations recorded successfully!`
+      message: `${studentIds.length} vaccinations recorded successfully!`,
+      drive: plainUpdatedDrive
     });
   } catch (error) {
     res.status(500).send({

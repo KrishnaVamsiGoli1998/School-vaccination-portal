@@ -21,18 +21,54 @@ const Dashboard = () => {
     fetchDashboardStats();
   }, []);
 
-  const fetchDashboardStats = () => {
+  const fetchDashboardStats = async () => {
     setLoading(true);
-    DashboardService.getStats()
-      .then(response => {
+    setError('');
+    
+    try {
+      console.log('Fetching dashboard stats...');
+      const response = await DashboardService.getStats();
+      console.log('Dashboard data received:', response.status);
+      
+      if (response.data) {
         setStats(response.data);
-        setLoading(false);
-      })
-      .catch(error => {
-        setError('Failed to load dashboard data');
-        setLoading(false);
-        console.error('Error fetching dashboard stats:', error);
-      });
+      } else {
+        setError('Received empty response from server');
+        console.error('Empty response data');
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      
+      // Provide more specific error messages based on the error
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (error.response.status === 401 || error.response.status === 403) {
+          setError('Authentication error. Please log in again.');
+        } else if (error.response.status === 500) {
+          setError('Server error. Please try again later.');
+        } else {
+          setError(`Failed to load dashboard data: ${error.response.data.message || error.message}`);
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        setError('No response from server. Please check your connection.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setError(`Failed to load dashboard data: ${error.message}`);
+      }
+      
+      // Try to load partial data if available
+      if (error.response && error.response.data) {
+        const partialData = error.response.data;
+        if (partialData.totalStudents !== undefined) {
+          console.log('Using partial data from error response');
+          setStats(partialData);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {

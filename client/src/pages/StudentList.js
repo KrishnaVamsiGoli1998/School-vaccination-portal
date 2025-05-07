@@ -88,6 +88,12 @@ const StudentList = () => {
       return;
     }
 
+    // Validate file extension
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast.error('Please upload a CSV file');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 
@@ -101,7 +107,37 @@ const StudentList = () => {
       })
       .catch(error => {
         console.error('Error uploading file:', error);
-        toast.error(error.response?.data?.message || 'Failed to upload file');
+        
+        // Display detailed error information
+        if (error.response?.data) {
+          const errorData = error.response.data;
+          
+          // If there are specific validation errors, show them
+          if (errorData.errors && Array.isArray(errorData.errors)) {
+            // Show the main error message
+            toast.error(errorData.message || 'Validation errors in CSV file');
+            
+            // Show the first few specific errors
+            const errorsToShow = errorData.errors.slice(0, 3);
+            errorsToShow.forEach(err => {
+              toast.error(err, { delay: 300 });
+            });
+            
+            // If there are more errors, show a count
+            if (errorData.errors.length > 3) {
+              toast.error(`...and ${errorData.errors.length - 3} more errors`, { delay: 600 });
+            }
+          } else if (errorData.example) {
+            // If there's an example format provided, show it
+            toast.error(errorData.message || 'Invalid CSV format');
+            toast.info(`Example format: ${errorData.example}`, { delay: 300 });
+          } else {
+            // Just show the main error message
+            toast.error(errorData.message || 'Failed to upload file');
+          }
+        } else {
+          toast.error('Failed to upload file. Please check the file format.');
+        }
       })
       .finally(() => {
         setUploadLoading(false);
@@ -287,7 +323,7 @@ const StudentList = () => {
       </Card>
 
       {/* Bulk Import Modal */}
-      <Modal show={showUploadModal} onHide={() => setShowUploadModal(false)}>
+      <Modal show={showUploadModal} onHide={() => setShowUploadModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Bulk Import Students</Modal.Title>
         </Modal.Header>
@@ -299,6 +335,40 @@ const StudentList = () => {
               CSV file should have headers: studentId, name, dateOfBirth, gender, grade, section, parentName, contactNumber, address
             </Form.Text>
           </Form.Group>
+          
+          <div className="alert alert-info mt-3">
+            <h6 className="mb-2">CSV Format Guidelines:</h6>
+            <ol className="mb-2">
+              <li>The file must be a valid CSV (comma-separated values) format</li>
+              <li>The first row must contain column headers</li>
+              <li>Required fields: <strong>studentId</strong>, <strong>name</strong>, and <strong>grade</strong></li>
+              <li><strong>Date format must be DD-MM-YYYY</strong> (e.g., 21-07-1998) with hyphens as separators</li>
+              <li>Gender should be "Male", "Female", or "Other"</li>
+            </ol>
+            <div className="mt-2">
+              <strong>Example:</strong><br/>
+              <code>studentId,name,dateOfBirth,gender,grade,section,parentName,contactNumber,address</code><br/>
+              <code>ST001,Naveen Kumar,21-07-1998,Male,10,B,Ravu Singh,9876567809,123 Main Street</code>
+            </div>
+            <div className="mt-2 alert alert-warning">
+              <strong>Important Date Format Note:</strong><br/>
+              The date must be in DD-MM-YYYY format with hyphens (-) as separators.<br/>
+              ✅ Correct: 21-07-1998 (day-month-year)<br/>
+              ❌ Incorrect: 21/07/1998, 07-21-1998, 1998-07-21<br/>
+              <strong>Note:</strong> If you're creating the CSV in Excel, make sure to format the date column as Text before entering dates.
+            </div>
+            <div className="mt-2">
+              <a href="/sample_students.csv" download className="btn btn-sm btn-outline-primary">
+                Download Sample CSV
+              </a>
+            </div>
+          </div>
+          
+          {file && (
+            <div className="alert alert-warning mt-3">
+              <strong>Important:</strong> Make sure your CSV file has proper comma separators between each field.
+            </div>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowUploadModal(false)}>
