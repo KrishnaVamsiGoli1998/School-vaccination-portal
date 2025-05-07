@@ -5,8 +5,6 @@ import { FaEdit, FaCalendarAlt, FaSyringe, FaUserGraduate, FaCheck, FaSearch, Fa
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import axios from 'axios';
-import DriveService from '../services/drive.service';
-import StudentService from '../services/student.service';
 import EmptyState from '../components/EmptyState';
 import authHeader from '../services/auth-header';
 
@@ -40,7 +38,7 @@ const VaccinationDriveDetails = () => {
     // Always add a timestamp to prevent caching
     const timestamp = `?t=${new Date().getTime()}`;
     
-    console.log(`Fetching drive data with ID: ${id}${timestamp}`);
+
     
     // Create a fresh axios instance to avoid any middleware caching
     axios.get(`/api/drives/${id}${timestamp}`, {
@@ -52,9 +50,7 @@ const VaccinationDriveDetails = () => {
       }
     })
       .then(response => {
-        console.log('Fetched drive data:', response.data);
-        console.log('Vaccinations in response:', response.data.vaccinations ? 
-          response.data.vaccinations.length : 'none');
+
         
         // Force a complete re-render by creating a new object
         const freshDriveData = JSON.parse(JSON.stringify(response.data));
@@ -64,10 +60,7 @@ const VaccinationDriveDetails = () => {
           freshDriveData.vaccinations = [];
         }
         
-        // Log the first vaccination for debugging if available
-        if (freshDriveData.vaccinations.length > 0) {
-          console.log('First vaccination in response:', freshDriveData.vaccinations[0]);
-        }
+
         
         setDrive(freshDriveData);
         
@@ -94,8 +87,6 @@ const VaccinationDriveDetails = () => {
     // Add the timestamp to the filter
     const params = { ...gradeFilter, timestamp };
     
-    console.log('Fetching eligible students with params:', params);
-    
     // Use direct axios call with cache busting
     axios.get('/api/students', {
       params,
@@ -107,20 +98,14 @@ const VaccinationDriveDetails = () => {
       }
     })
       .then(response => {
-        console.log('Fetched students data:', response.data);
-        
         // Filter out students who are already vaccinated in this drive
         const vaccinatedStudentIds = new Set(
           (driveData.vaccinations || []).map(v => v.studentId)
         );
         
-        console.log('Vaccinated student IDs:', Array.from(vaccinatedStudentIds));
-        
         const eligibleStudents = response.data.filter(
           student => !vaccinatedStudentIds.has(student.id)
         );
-        
-        console.log(`Filtered ${response.data.length} students to ${eligibleStudents.length} eligible students`);
         
         setStudents(eligibleStudents);
         setFilteredStudents(eligibleStudents);
@@ -199,9 +184,6 @@ const VaccinationDriveDetails = () => {
         
         // 1. If the server returned updated drive data, use it directly
         if (response.data.drive) {
-          console.log('Using drive data from response:', response.data.drive);
-          console.log('Vaccinations in response:', response.data.drive.vaccinations ? 
-            response.data.drive.vaccinations.length : 'none');
           
           // Deep clone to ensure we get a fresh object
           const freshDriveData = JSON.parse(JSON.stringify(response.data.drive));
@@ -211,10 +193,7 @@ const VaccinationDriveDetails = () => {
             freshDriveData.vaccinations = [];
           }
           
-          // Log the first vaccination for debugging if available
-          if (freshDriveData.vaccinations.length > 0) {
-            console.log('First vaccination in response:', freshDriveData.vaccinations[0]);
-          }
+
           
           // Set the drive data
           setDrive(freshDriveData);
@@ -223,20 +202,17 @@ const VaccinationDriveDetails = () => {
         
         // 2. Always fetch fresh data after a short delay
         setTimeout(() => {
-          console.log('Fetching fresh drive data after vaccination');
           fetchDrive(true);
         }, 500);
         
         // 3. Fetch again after a longer delay as a fallback
         setTimeout(() => {
-          console.log('Fallback: Fetching drive data again');
           fetchDrive(true);
         }, 2000);
         
         // 4. Force a page reload as a last resort after 3 seconds
         // This is a drastic measure but will ensure the UI is updated
         setTimeout(() => {
-          console.log('Last resort: Reloading the page');
           window.location.reload();
         }, 3000);
       })
@@ -400,11 +376,9 @@ const VaccinationDriveDetails = () => {
             variant="link" 
             className="p-0" 
             onClick={() => {
-              console.log('Current drive data:', drive);
-              console.log('Vaccinations:', drive.vaccinations);
-              toast.info(`Vaccinations data logged to console (${drive.vaccinations ? drive.vaccinations.length : 0} records)`);
+              toast.info(`Total vaccinated students: ${drive.vaccinations ? drive.vaccinations.length : 0}`);
             }}
-            title="Debug vaccinations data"
+            title="Show vaccination count"
           >
             <FaSyncAlt className="text-secondary" />
           </Button>
@@ -413,7 +387,7 @@ const VaccinationDriveDetails = () => {
           {(() => {
             // Ensure vaccinations is always an array
             const vaccinations = drive.vaccinations || [];
-            console.log(`Rendering vaccinations table with ${vaccinations.length} records`);
+
             
             if (Array.isArray(vaccinations) && vaccinations.length > 0) {
               return (
@@ -445,7 +419,7 @@ const VaccinationDriveDetails = () => {
                       {vaccinations.map((vaccination, index) => {
                         // Check if student data exists
                         if (!vaccination.student) {
-                          console.warn(`Vaccination ${vaccination.id} has no student data`);
+    
                           return (
                             <tr key={`vaccination-${vaccination.id || index}`}>
                               <td colSpan="6" className="text-center text-warning">

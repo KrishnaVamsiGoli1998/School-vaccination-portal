@@ -61,7 +61,6 @@ exports.create = async (req, res) => {
 // Retrieve all vaccination drives
 exports.findAll = async (req, res) => {
   try {
-    console.log('Fetching all vaccination drives with query params:', req.query);
     const { upcoming, past, status, t } = req.query; // t is timestamp for cache busting
     let condition = {};
     
@@ -103,7 +102,7 @@ exports.findAll = async (req, res) => {
       order: [['date', 'ASC']]
     });
 
-    console.log(`Found ${drives.length} vaccination drives`);
+
 
     // Process each drive to get accurate vaccination counts
     const drivesWithCount = await Promise.all(drives.map(async (drive) => {
@@ -141,7 +140,6 @@ exports.findAll = async (req, res) => {
 exports.findOne = async (req, res) => {
   try {
     const id = req.params.id;
-    console.log(`Finding vaccination drive with ID: ${id}`);
     
     // First, get the basic drive data
     const drive = await VaccinationDrive.findByPk(id);
@@ -161,32 +159,14 @@ exports.findOne = async (req, res) => {
       }]
     });
     
-    console.log(`Found ${vaccinations.length} vaccinations for drive ${id}`);
+
     
     // Create a response object with all the data needed
     const plainDrive = drive.get({ plain: true });
     plainDrive.vaccinations = vaccinations.map(v => v.get({ plain: true }));
     plainDrive.vaccinatedCount = vaccinations.length;
     
-    // Log the data being sent back for debugging
-    console.log(`Drive ${id} data:`, {
-      availableDoses: plainDrive.availableDoses,
-      vaccinatedCount: plainDrive.vaccinatedCount,
-      totalVaccinations: plainDrive.vaccinations.length,
-      vaccinationIds: plainDrive.vaccinations.map(v => v.id)
-    });
-    
-    // Log the first vaccination for debugging if available
-    if (plainDrive.vaccinations.length > 0) {
-      console.log('First vaccination:', {
-        id: plainDrive.vaccinations[0].id,
-        studentId: plainDrive.vaccinations[0].studentId,
-        student: plainDrive.vaccinations[0].student ? {
-          id: plainDrive.vaccinations[0].student.id,
-          name: plainDrive.vaccinations[0].student.name
-        } : 'No student data'
-      });
-    }
+
     
     // Set cache control headers
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -404,27 +384,22 @@ exports.recordVaccinations = async (req, res) => {
       administeredBy: req.body.administeredBy || 'School Coordinator'
     }));
     
-    console.log('Creating vaccinations:', vaccinations);
-    
     // Create vaccinations one by one to ensure they're properly created
     const createdVaccinations = [];
     for (const vaccination of vaccinations) {
       try {
         const created = await Vaccination.create(vaccination);
         createdVaccinations.push(created);
-        console.log(`Created vaccination with ID ${created.id} for student ${vaccination.studentId}`);
       } catch (error) {
         console.error(`Error creating vaccination for student ${vaccination.studentId}:`, error);
         throw error;
       }
     }
     
-    console.log(`Successfully created ${createdVaccinations.length} vaccinations`);
-    
     // Calculate new available doses count
     const newAvailableDoses = drive.availableDoses - studentIds.length;
     
-    console.log(`Updating drive ${driveId}: Available doses from ${drive.availableDoses} to ${newAvailableDoses}`);
+
     
     // Update drive with new available doses count and status if needed
     if (newAvailableDoses <= 0) {
@@ -439,7 +414,7 @@ exports.recordVaccinations = async (req, res) => {
           returning: true // Get the updated record
         }
       );
-      console.log(`Drive ${driveId} marked as completed with 0 available doses`);
+
     } else {
       // Otherwise just update the available doses
       await VaccinationDrive.update(
@@ -449,7 +424,7 @@ exports.recordVaccinations = async (req, res) => {
           returning: true // Get the updated record
         }
       );
-      console.log(`Drive ${driveId} updated with ${newAvailableDoses} available doses`);
+
     }
     
     // Force a database sync to ensure changes are committed

@@ -19,7 +19,6 @@ const VaccinationDriveList = () => {
   // Fetch drives when component mounts, filter changes, or when navigating back to this page
   useEffect(() => {
     fetchDrives();
-    console.log('Fetching drives due to location or filter change');
   }, [filter, location.key]);
   
   // Also refresh data periodically
@@ -45,11 +44,11 @@ const VaccinationDriveList = () => {
       params.past = true;
     }
     
-    console.log('Fetching drives with params:', params);
+
     
     DriveService.getAll(params)
       .then(response => {
-        console.log('Fetched drives:', response.data);
+
         setDrives(response.data);
         if (showLoading) {
           setLoading(false);
