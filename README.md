@@ -145,7 +145,3 @@ school-vaccination-portal/
     ├── models/             # Database models
     └── routes/             # API routes
 ```
-
-## License
-
-This project is licensed under the MIT License.
